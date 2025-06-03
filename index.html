@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,7 +8,6 @@
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth-compat.js"></script>
@@ -72,6 +72,34 @@
     </div>
   </div>
 
+  <!-- Primero cargamos Firebase y el script principal -->
   <script src="script_firebase.js"></script>
+
+  <!-- Después definimos las funciones de login/logout y autenticación -->
+  <script>
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .catch(err => alert("Error al iniciar sesión: " + err.message));
+    }
+
+    function logout() {
+      firebase.auth().signOut();
+    }
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('appSection').style.display = 'block';
+      } else {
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('appSection').style.display = 'none';
+      }
+    });
+
+    window.login = login;
+    window.logout = logout;
+  </script>
 </body>
 </html>
