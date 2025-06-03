@@ -238,17 +238,24 @@ async function exportarReportePDF() {
   const jsPDF = window.jspdf.jsPDF;
   const doc = new jsPDF();
 
-  doc.setFontSize(16);
-  doc.text("Reporte de Ventas por Producto", 14, 20);
+  // Título centrado
+  doc.setFontSize(18);
+  doc.text("Reporte de Ventas por Producto", 105, 20, null, null, "center");
 
   let y = 30;
   for (const [turno, productos] of Object.entries(ventasPorProducto)) {
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text(`Turno: ${turno}`, 14, y);
     y += 8;
 
+    // Encabezados
+    doc.setFillColor(220, 220, 220); // gris claro
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(14, y - 6, 180, 8, 'F');
+
     doc.setFontSize(12);
-    doc.text("Producto", 14, y);
+    doc.text("Producto", 16, y);
     doc.text("Unidades", 70, y);
     doc.text("Total", 110, y);
     doc.text("Efectivo", 140, y);
@@ -256,13 +263,15 @@ async function exportarReportePDF() {
     y += 8;
 
     for (const [nombre, datos] of Object.entries(productos)) {
-      doc.text(nombre, 14, y);
+      doc.setFontSize(11);
+      doc.text(nombre, 16, y);
       doc.text(`${datos.unidades}`, 70, y);
       doc.text(`$${datos.total.toFixed(2)}`, 110, y);
       doc.text(`$${(datos.efectivo || 0).toFixed(2)}`, 140, y);
       doc.text(`$${(datos.mp || 0).toFixed(2)}`, 170, y);
       y += 8;
 
+      // Salto de página si es necesario
       if (y > 280) {
         doc.addPage();
         y = 20;
@@ -275,8 +284,6 @@ async function exportarReportePDF() {
   doc.save("reporte_ventas.pdf");
 }
 
-
-// ==============================
 // Hacer funciones accesibles desde el HTML
 // ==============================
 window.abrirTurno = abrirTurno;
