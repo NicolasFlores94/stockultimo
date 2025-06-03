@@ -1,4 +1,3 @@
-
 // ==============================
 // Firebase Configuración
 // ==============================
@@ -275,3 +274,14 @@ async function exportarReportePDF() {
 
   doc.save("reporte_ventas.pdf");
 }
+
+// ==============================
+// Hacer funciones accesibles desde el HTML
+// ==============================
+window.abrirTurno = abrirTurno;
+window.cerrarTurno = cerrarTurno;
+window.exportarReportePDF = exportarReportePDF;
+window.confirmarMetodoPago = confirmarMetodoPago;
+window.filtrarProductos = filtrarProductos;
+window.sellProduct = sellProduct;
+window.abrirEditorProducto = abrirEditorProducto;
