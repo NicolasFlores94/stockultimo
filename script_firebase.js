@@ -1,6 +1,6 @@
-// ==============================
+
 // Firebase Configuración
-// ==============================
+
 const firebaseConfig = {
   apiKey: "AIzaSyBmqrpy393YAIihqf64ZaJ6s6GQncLN_YU",
   authDomain: "controlstock-abb5b.firebaseapp.com",
@@ -235,7 +235,7 @@ function filtrarProductos() {
 // Exportar PDF
 // ==============================
 async function exportarReportePDF() {
-  const { jsPDF } = window.jspdf;
+  const jsPDF = window.jspdf.jsPDF;
   const doc = new jsPDF();
 
   doc.setFontSize(16);
@@ -274,6 +274,7 @@ async function exportarReportePDF() {
 
   doc.save("reporte_ventas.pdf");
 }
+
 
 // ==============================
 // Hacer funciones accesibles desde el HTML
