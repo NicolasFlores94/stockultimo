@@ -293,3 +293,24 @@ window.confirmarMetodoPago = confirmarMetodoPago;
 window.filtrarProductos = filtrarProductos;
 window.sellProduct = sellProduct;
 window.abrirEditorProducto = abrirEditorProducto;
+
+firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('appSection').style.display = 'block';
+      } else {
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('appSection').style.display = 'none';
+      }
+    });
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .catch(err => alert("Error al iniciar sesión: " + err.message));
+    }
+
+    function logout() {
+      firebase.auth().signOut();
+    }
