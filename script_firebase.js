@@ -314,3 +314,131 @@ firebase.auth().onAuthStateChanged(user => {
     function logout() {
       firebase.auth().signOut();
     }
+
+// NUEVAS FUNCIONES PARA RESUMEN POR TURNO Y EXPORTACIÓN HISTÓRICA
+
+function renderResumenPorTurno() {
+  const divResumen = document.getElementById('resumenPorTurno');
+  divResumen.innerHTML = '';
+
+  if (!turnoId || !ventasPorProducto[turnoId]) return;
+
+  let totalEfectivo = 0;
+  let totalMP = 0;
+
+  for (const producto of Object.values(ventasPorProducto[turnoId])) {
+    totalEfectivo += producto.efectivo || 0;
+    totalMP += producto.mp || 0;
+  }
+
+  const resumenHTML = `
+    <div><strong>Total en efectivo:</strong> $${totalEfectivo.toFixed(2)}</div>
+    <div><strong>Total en MP:</strong> $${totalMP.toFixed(2)}</div>
+    <div><strong>Total general:</strong> $${(totalEfectivo + totalMP).toFixed(2)}</div>
+  `;
+
+  divResumen.innerHTML = resumenHTML;
+}
+
+function renderResumenHistorico() {
+  const contenedor = document.getElementById('resumenHistorico');
+  contenedor.innerHTML = '';
+
+  const resumenPorFecha = {};
+
+  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
+    const fecha = turno.split(" ")[0];
+    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
+
+    for (const datos of Object.values(productos)) {
+      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
+      resumenPorFecha[fecha].mp += datos.mp || 0;
+    }
+  }
+
+  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
+    const total = resumen.efectivo + resumen.mp;
+    const divFecha = document.createElement('div');
+    divFecha.style.border = "1px solid #ccc";
+    divFecha.style.padding = "10px";
+    divFecha.style.margin = "10px";
+    divFecha.style.background = "#fff";
+    divFecha.style.width = "100%";
+    divFecha.innerHTML = `
+      <strong>Fecha:</strong> ${fecha}<br/>
+      Efectivo: $${resumen.efectivo.toFixed(2)}<br/>
+      MP: $${resumen.mp.toFixed(2)}<br/>
+      Total: $${total.toFixed(2)}
+    `;
+    contenedor.appendChild(divFecha);
+  }
+}
+
+function exportarResumenHistoricoPDF() {
+  const jsPDF = window.jspdf.jsPDF;
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Resumen Histórico por Fecha", 105, 20, null, null, "center");
+
+  let y = 30;
+  const resumenPorFecha = {};
+
+  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
+    const fecha = turno.split(" ")[0];
+    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
+
+    for (const datos of Object.values(productos)) {
+      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
+      resumenPorFecha[fecha].mp += datos.mp || 0;
+    }
+  }
+
+  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
+    doc.setFontSize(12);
+    doc.text(`Fecha: ${fecha}`, 14, y);
+    y += 6;
+    doc.text(`Efectivo: $${resumen.efectivo.toFixed(2)}`, 20, y);
+    y += 6;
+    doc.text(`MP: $${resumen.mp.toFixed(2)}`, 20, y);
+    y += 6;
+    doc.text(`Total: $${(resumen.efectivo + resumen.mp).toFixed(2)}`, 20, y);
+    y += 10;
+    if (y > 280) { doc.addPage(); y = 20; }
+  }
+
+  doc.save("resumen_historico_por_fecha.pdf");
+}
+
+function exportarResumenHistoricoExcel() {
+  const wb = XLSX.utils.book_new();
+  const data = [["Fecha", "Efectivo", "MP", "Total"]];
+  const resumenPorFecha = {};
+
+  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
+    const fecha = turno.split(" ")[0];
+    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
+
+    for (const datos of Object.values(productos)) {
+      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
+      resumenPorFecha[fecha].mp += datos.mp || 0;
+    }
+  }
+
+  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
+    data.push([
+      fecha,
+      resumen.efectivo.toFixed(2),
+      resumen.mp.toFixed(2),
+      (resumen.efectivo + resumen.mp).toFixed(2)
+    ]);
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Resumen Fechas");
+  XLSX.writeFile(wb, "resumen_historico_por_fecha.xlsx");
+}
+
+window.renderResumenPorTurno = renderResumenPorTurno;
+window.renderResumenHistorico = renderResumenHistorico;
+window.exportarResumenHistoricoPDF = exportarResumenHistoricoPDF;
+window.exportarResumenHistoricoExcel = exportarResumenHistoricoExcel;

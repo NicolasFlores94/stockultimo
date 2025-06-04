@@ -55,12 +55,22 @@
 
     <h2 id="totalVentasDisplay">Total de Ventas: $0.00</h2>
 
+    <h2 id="resumenTurnoDisplay">Resumen del turno actual</h2>
+    <div id="resumenPorTurno" class="center-buttons"></div>
+
     <h2>Historial de Ventas</h2>
     <ul id="historialVentas"></ul>
 
     <h2>Reporte de Ventas por Producto</h2>
     <div class="center-buttons">
       <button onclick="exportarReportePDF()">Exportar a PDF</button>
+    </div>
+
+    <h2>Resumen histórico por turnos</h2>
+    <div id="resumenHistorico" class="center-buttons" style="flex-direction: column; align-items: center;"></div>
+    <div class="center-buttons">
+      <button onclick="exportarResumenHistoricoPDF()">Exportar resumen a PDF</button>
+      <button onclick="exportarResumenHistoricoExcel()">Exportar resumen a Excel</button>
     </div>
 
     <div id="metodoPagoModal" class="modal hidden">
@@ -72,10 +82,7 @@
     </div>
   </div>
 
-  <!-- Primero cargamos Firebase y el script principal -->
   <script src="script_firebase.js"></script>
-
-  <!-- Después definimos las funciones de login/logout y autenticación -->
   <script>
     function login() {
       const email = document.getElementById('email').value;
