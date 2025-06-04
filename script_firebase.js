@@ -77,7 +77,7 @@ function abrirTurno() {
   const ahora = new Date();
   const fecha = ahora.toLocaleDateString('es-ES');
   const hora = ahora.toLocaleTimeString('es-ES');
-  turnoId = `${fecha} ${hora}`;
+  turnoId = `${fecha}_${hora}`.replace(/[.:/]/g, '-');
 
   ventasPorProducto[turnoId] = {};
 

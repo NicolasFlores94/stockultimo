@@ -5,8 +5,8 @@ const urlsToCache = [
   "/styles.css",
   "/script_firebase.js",
   "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png"
+  "/hamburguesa.png",
+  "/hamburguesa.png"
 ];
 
 self.addEventListener("install", event => {
