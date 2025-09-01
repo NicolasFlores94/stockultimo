@@ -56,6 +56,12 @@
       <tbody id="productList"></tbody>
     </table>
 
+    <div class="center-buttons">
+      <button button onclick="exportarProductosJSON()">Exportar JSON</button>
+      <button onclick="exportarProductosExcel()">Exportar Excel</button>
+      <input type="file" id="importFile" accept=".json,.xlsx" onchange="importarProductos(event)" />
+    </div>
+
     <h2 id="totalVentasDisplay">Total de Ventas: $0.00</h2>
 
     <h2 id="resumenTurnoDisplay">Resumen del turno actual</h2>

@@ -1,6 +1,6 @@
-
-// Firebase Configuración
-
+// ==============================
+// Configuración de Firebase
+// ==============================
 const firebaseConfig = {
   apiKey: "AIzaSyBmqrpy393YAIihqf64ZaJ6s6GQncLN_YU",
   authDomain: "controlstock-abb5b.firebaseapp.com",
@@ -21,12 +21,11 @@ const db = firebase.database();
 const form = document.getElementById('productForm');
 const productList = document.getElementById('productList');
 
-let products = [];
+let products = {};
 let totalVentas = 0;
-let ventasTurno = 0;
 let historialVentas = [];
 let ventasPorProducto = {};
-let productoActualIndex = null;
+let productoActualId = null;
 
 let turnoId = null;
 let turnoActivo = false;
@@ -35,7 +34,7 @@ let turnoActivo = false;
 // Listeners Firebase
 // ==============================
 db.ref("products").on("value", (snapshot) => {
-  products = snapshot.val() || [];
+  products = snapshot.val() || {};
   renderProducts();
 });
 
@@ -54,49 +53,30 @@ db.ref("totalVentas").on("value", (snapshot) => {
 });
 
 // ==============================
-// Funciones Firebase
+// Guardar en Firebase
 // ==============================
-function saveToFirebase() {
-  db.ref("products").set(products);
+function saveProductToFirebase(id, product) {
+  db.ref("products/" + id).set(product);
+}
+
+function deleteProductFromFirebase(id) {
+  db.ref("products/" + id).remove();
+}
+
+function saveHistorialToFirebase() {
   db.ref("historialVentas").set(historialVentas);
+}
+
+function saveVentasPorProducto() {
   db.ref("ventasPorProducto").set(ventasPorProducto);
+}
+
+function saveTotalVentas() {
   db.ref("totalVentas").set(totalVentas.toFixed(2));
 }
 
 // ==============================
-// Funciones de turno
-// ==============================
-function abrirTurno() {
-  if (turnoActivo) return alert('Ya hay un turno activo.');
-
-  turnoActivo = true;
-  totalVentas = 0;
-  historialVentas = [];
-  ventasTurno = 0;
-
-  const ahora = new Date();
-  const fecha = ahora.toLocaleDateString('es-ES');
-  const hora = ahora.toLocaleTimeString('es-ES');
-  turnoId = `${fecha}_${hora}`.replace(/[.:/]/g, '-');
-
-  ventasPorProducto[turnoId] = {};
-
-  alert('Turno iniciado.');
-  saveToFirebase();
-  renderEstadoTurno();
-}
-
-function cerrarTurno() {
-  if (!turnoActivo) return alert('No hay un turno activo.');
-
-  turnoActivo = false;
-  alert(`Turno cerrado.\nTotal vendido: $${ventasTurno.toFixed(2)}`);
-  ventasTurno = 0;
-  renderEstadoTurno();
-}
-
-// ==============================
-// Funciones de productos
+// Manejo de productos
 // ==============================
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -105,28 +85,33 @@ form.addEventListener('submit', (e) => {
   const price = parseFloat(document.getElementById('price').value);
   const quantity = parseInt(document.getElementById('quantity').value);
 
-  products.push({ name, price, quantity });
+  const id = db.ref().child("products").push().key; // ID único
+  const product = { id, name, price, quantity };
+
+  saveProductToFirebase(id, product);
+
   form.reset();
-  saveToFirebase();
 });
 
-function sellProduct(index) {
+function sellProduct(id) {
   if (!turnoActivo) return alert('Debes abrir un turno para vender.');
 
-  const producto = products[index];
+  const producto = products[id];
   if (producto.quantity <= 0) return alert('Sin stock disponible.');
 
-  productoActualIndex = index;
+  productoActualId = id;
   document.getElementById('metodoPagoModal').classList.remove('hidden');
 }
 
 function confirmarMetodoPago(metodo) {
-  const producto = products[productoActualIndex];
+  const producto = products[productoActualId];
   document.getElementById('metodoPagoModal').classList.add('hidden');
 
   producto.quantity--;
+  saveProductToFirebase(productoActualId, producto);
+
   totalVentas += producto.price;
-  ventasTurno += producto.price;
+  saveTotalVentas();
 
   const hora = new Date().toLocaleString();
   historialVentas.push({
@@ -135,7 +120,9 @@ function confirmarMetodoPago(metodo) {
     hora,
     metodo
   });
+  saveHistorialToFirebase();
 
+  if (!ventasPorProducto[turnoId]) ventasPorProducto[turnoId] = {};
   if (!ventasPorProducto[turnoId][producto.name]) {
     ventasPorProducto[turnoId][producto.name] = {
       unidades: 0,
@@ -148,17 +135,15 @@ function confirmarMetodoPago(metodo) {
   ventasPorProducto[turnoId][producto.name].unidades++;
   ventasPorProducto[turnoId][producto.name].total += producto.price;
   ventasPorProducto[turnoId][producto.name][metodo] += producto.price;
-
-  saveToFirebase();
+  saveVentasPorProducto();
 }
 
-function deleteProduct(index) {
-  products.splice(index, 1);
-  saveToFirebase();
+function deleteProduct(id) {
+  deleteProductFromFirebase(id);
 }
 
-function abrirEditorProducto(index) {
-  const producto = products[index];
+function abrirEditorProducto(id) {
+  const producto = products[id];
 
   const nuevoNombre = prompt("Modificar nombre:", producto.name);
   if (nuevoNombre === null) return;
@@ -171,21 +156,21 @@ function abrirEditorProducto(index) {
 
   const confirmarEliminar = confirm("¿Deseas eliminar este producto?");
   if (confirmarEliminar) {
-    deleteProduct(index);
+    deleteProduct(id);
   } else {
     producto.name = nuevoNombre;
     producto.price = nuevoPrecio;
     producto.quantity = nuevaCantidad;
-    saveToFirebase();
+    saveProductToFirebase(id, producto);
   }
 }
 
 // ==============================
-// Funciones de interfaz
+// Renderizado de la interfaz
 // ==============================
 function renderProducts() {
   productList.innerHTML = '';
-  products.forEach((product, index) => {
+  Object.values(products).forEach((product) => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${product.name}</td>
@@ -193,8 +178,8 @@ function renderProducts() {
       <td>${product.quantity}</td>
       <td>$${(product.price * product.quantity).toFixed(2)}</td>
       <td>
-        <button onclick="sellProduct(${index})">Vender</button>
-        <button onclick="abrirEditorProducto(${index})">Editar</button>
+        <button onclick="sellProduct('${product.id}')">Vender</button>
+        <button onclick="abrirEditorProducto('${product.id}')">Editar</button>
       </td>
     `;
     productList.appendChild(row);
@@ -225,220 +210,103 @@ function filtrarProductos() {
   const texto = document.getElementById('buscador').value.toLowerCase();
   const filas = productList.querySelectorAll('tr');
 
-  products.forEach((product, index) => {
+  Object.values(products).forEach((product, index) => {
     const visible = product.name.toLowerCase().includes(texto);
     filas[index].style.display = visible ? '' : 'none';
   });
 }
 
 // ==============================
-// Exportar PDF
+// Exportar funciones globales
 // ==============================
-async function exportarReportePDF() {
-  const jsPDF = window.jspdf.jsPDF;
-  const doc = new jsPDF();
-
-  // Título centrado
-  doc.setFontSize(18);
-  doc.text("Reporte de Ventas por Producto", 105, 20, null, null, "center");
-
-  let y = 30;
-  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
-    doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text(`Turno: ${turno}`, 14, y);
-    y += 8;
-
-    // Encabezados
-    doc.setFillColor(220, 220, 220); // gris claro
-    doc.setDrawColor(200, 200, 200);
-    doc.rect(14, y - 6, 180, 8, 'F');
-
-    doc.setFontSize(12);
-    doc.text("Producto", 16, y);
-    doc.text("Unidades", 70, y);
-    doc.text("Total", 110, y);
-    doc.text("Efectivo", 140, y);
-    doc.text("MP", 170, y);
-    y += 8;
-
-    for (const [nombre, datos] of Object.entries(productos)) {
-      doc.setFontSize(11);
-      doc.text(nombre, 16, y);
-      doc.text(`${datos.unidades}`, 70, y);
-      doc.text(`$${datos.total.toFixed(2)}`, 110, y);
-      doc.text(`$${(datos.efectivo || 0).toFixed(2)}`, 140, y);
-      doc.text(`$${(datos.mp || 0).toFixed(2)}`, 170, y);
-      y += 8;
-
-      // Salto de página si es necesario
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
-    }
-
-    y += 10;
-  }
-
-  doc.save("reporte_ventas.pdf");
-}
-
-// Hacer funciones accesibles desde el HTML
-// ==============================
-window.abrirTurno = abrirTurno;
-window.cerrarTurno = cerrarTurno;
-window.exportarReportePDF = exportarReportePDF;
-window.confirmarMetodoPago = confirmarMetodoPago;
-window.filtrarProductos = filtrarProductos;
 window.sellProduct = sellProduct;
+window.confirmarMetodoPago = confirmarMetodoPago;
+window.deleteProduct = deleteProduct;
 window.abrirEditorProducto = abrirEditorProducto;
+window.filtrarProductos = filtrarProductos;
 
-firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('appSection').style.display = 'block';
-      } else {
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('appSection').style.display = 'none';
-      }
-    });
+// ==============================
+// BACKUP de productos (Exportar / Importar)
+// ==============================
 
-    function login() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .catch(err => alert("Error al iniciar sesión: " + err.message));
-    }
-
-    function logout() {
-      firebase.auth().signOut();
-    }
-
-// NUEVAS FUNCIONES PARA RESUMEN POR TURNO Y EXPORTACIÓN HISTÓRICA
-
-function renderResumenPorTurno() {
-  const divResumen = document.getElementById('resumenPorTurno');
-  divResumen.innerHTML = '';
-
-  if (!turnoId || !ventasPorProducto[turnoId]) return;
-
-  let totalEfectivo = 0;
-  let totalMP = 0;
-
-  for (const producto of Object.values(ventasPorProducto[turnoId])) {
-    totalEfectivo += producto.efectivo || 0;
-    totalMP += producto.mp || 0;
-  }
-
-  const resumenHTML = `
-    <div><strong>Total en efectivo:</strong> $${totalEfectivo.toFixed(2)}</div>
-    <div><strong>Total en MP:</strong> $${totalMP.toFixed(2)}</div>
-    <div><strong>Total general:</strong> $${(totalEfectivo + totalMP).toFixed(2)}</div>
-  `;
-
-  divResumen.innerHTML = resumenHTML;
+// Exportar a JSON
+function exportarProductosJSON() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
+  const downloadAnchor = document.createElement("a");
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", "productos_backup.json");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
 }
 
-function renderResumenHistorico() {
-  const contenedor = document.getElementById('resumenHistorico');
-  contenedor.innerHTML = '';
-
-  const resumenPorFecha = {};
-
-  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
-    const fecha = turno.split(" ")[0];
-    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
-
-    for (const datos of Object.values(productos)) {
-      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
-      resumenPorFecha[fecha].mp += datos.mp || 0;
-    }
-  }
-
-  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
-    const total = resumen.efectivo + resumen.mp;
-    const divFecha = document.createElement('div');
-    divFecha.style.border = "1px solid #ccc";
-    divFecha.style.padding = "10px";
-    divFecha.style.margin = "10px";
-    divFecha.style.background = "#fff";
-    divFecha.style.width = "100%";
-    divFecha.innerHTML = `
-      <strong>Fecha:</strong> ${fecha}<br/>
-      Efectivo: $${resumen.efectivo.toFixed(2)}<br/>
-      MP: $${resumen.mp.toFixed(2)}<br/>
-      Total: $${total.toFixed(2)}
-    `;
-    contenedor.appendChild(divFecha);
-  }
-}
-
-function exportarResumenHistoricoPDF() {
-  const jsPDF = window.jspdf.jsPDF;
-  const doc = new jsPDF();
-  doc.setFontSize(18);
-  doc.text("Resumen Histórico por Fecha", 105, 20, null, null, "center");
-
-  let y = 30;
-  const resumenPorFecha = {};
-
-  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
-    const fecha = turno.split(" ")[0];
-    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
-
-    for (const datos of Object.values(productos)) {
-      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
-      resumenPorFecha[fecha].mp += datos.mp || 0;
-    }
-  }
-
-  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
-    doc.setFontSize(12);
-    doc.text(`Fecha: ${fecha}`, 14, y);
-    y += 6;
-    doc.text(`Efectivo: $${resumen.efectivo.toFixed(2)}`, 20, y);
-    y += 6;
-    doc.text(`MP: $${resumen.mp.toFixed(2)}`, 20, y);
-    y += 6;
-    doc.text(`Total: $${(resumen.efectivo + resumen.mp).toFixed(2)}`, 20, y);
-    y += 10;
-    if (y > 280) { doc.addPage(); y = 20; }
-  }
-
-  doc.save("resumen_historico_por_fecha.pdf");
-}
-
-function exportarResumenHistoricoExcel() {
+// Exportar a Excel
+function exportarProductosExcel() {
   const wb = XLSX.utils.book_new();
-  const data = [["Fecha", "Efectivo", "MP", "Total"]];
-  const resumenPorFecha = {};
+  const data = [["ID", "Nombre", "Precio", "Cantidad"]];
 
-  for (const [turno, productos] of Object.entries(ventasPorProducto)) {
-    const fecha = turno.split(" ")[0];
-    if (!resumenPorFecha[fecha]) resumenPorFecha[fecha] = { efectivo: 0, mp: 0 };
-
-    for (const datos of Object.values(productos)) {
-      resumenPorFecha[fecha].efectivo += datos.efectivo || 0;
-      resumenPorFecha[fecha].mp += datos.mp || 0;
-    }
-  }
-
-  for (const [fecha, resumen] of Object.entries(resumenPorFecha)) {
-    data.push([
-      fecha,
-      resumen.efectivo.toFixed(2),
-      resumen.mp.toFixed(2),
-      (resumen.efectivo + resumen.mp).toFixed(2)
-    ]);
-  }
+  Object.values(products).forEach(p => {
+    data.push([p.id, p.name, p.price, p.quantity]);
+  });
 
   const ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "Resumen Fechas");
-  XLSX.writeFile(wb, "resumen_historico_por_fecha.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "Productos");
+  XLSX.writeFile(wb, "productos_backup.xlsx");
 }
 
-window.renderResumenPorTurno = renderResumenPorTurno;
-window.renderResumenHistorico = renderResumenHistorico;
-window.exportarResumenHistoricoPDF = exportarResumenHistoricoPDF;
-window.exportarResumenHistoricoExcel = exportarResumenHistoricoExcel;
+// Importar desde JSON o Excel
+function importarProductos(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  if (file.name.endsWith(".json")) {
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        Object.values(data).forEach(p => {
+          if (!p.id) p.id = db.ref().child("products").push().key; // asignar id si no tiene
+          saveProductToFirebase(p.id, p);
+        });
+        alert("Productos importados desde JSON");
+      } catch (err) {
+        alert("Error al importar JSON: " + err);
+      }
+    };
+    reader.readAsText(file);
+  } else if (file.name.endsWith(".xlsx")) {
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        rows.slice(1).forEach(row => {
+          if (row.length >= 4) {
+            const id = row[0] || db.ref().child("products").push().key;
+            const product = {
+              id,
+              name: row[1],
+              price: parseFloat(row[2]),
+              quantity: parseInt(row[3])
+            };
+            saveProductToFirebase(id, product);
+          }
+        });
+        alert("Productos importados desde Excel");
+      } catch (err) {
+        alert("Error al importar Excel: " + err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    alert("Formato no soportado. Usa JSON o XLSX.");
+  }
+}
+
+// Hacer funciones globales
+window.exportarProductosJSON = exportarProductosJSON;
+window.exportarProductosExcel = exportarProductosExcel;
+window.importarProductos = importarProductos;
